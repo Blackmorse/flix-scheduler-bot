@@ -1,8 +1,6 @@
-use Assert.assertErr
-use Util.Json.JString
-use Assert.assertEq
-use Util.Json.JNumber
-use Util.Json.JObject
+use Util.Json.{JObject, JNumber, JString}
+use TelegramApi.{extractId, extractUpdateIdsFromHttpResponseBody, getLatestUpdateIdFun}
+use Assert.{assertEq, assertErr}
 use Net.Https
 
 @Test
@@ -28,7 +26,7 @@ def testExtractUpdateIdsFromHttpResponseBody(): Unit \ Assert =
 @Test
 def testExecuteHttpRequestAndGetLatestUpdateId(): Unit \ Assert =
     run {
-        let result = getLatestUpdateId("dummy_token");
+        let result = getLatestUpdateIdFun("dummy_token", None);
         assertEq(expected = Ok(789i64), result)
     } with handler Https {
         def request(_, resume) = 
