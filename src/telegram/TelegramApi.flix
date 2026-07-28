@@ -8,21 +8,40 @@ mod TelegramApi {
     use JsonExt.getAsArray
 
     pub eff TelegramApi {
-        def fetchUpdates(token: String, offset: Option[Int64]): Result[Error, List[TelegramUpdate]]
+        def fetchUpdates(offset: Option[Int64]): Result[Error, List[TelegramUpdate]]
     }
 
-    pub def runWithHttpsHandler(f: Unit -> a \ ef): a \ (ef - TelegramApi) + Https = 
+    pub eff TelegramBotToken {
+        def getToken(): String
+    }
+
+    pub def runWithHttpsHandler(f: Unit -> a \ ef): a \ (ef - TelegramApi) + Https + TelegramBotToken = 
         run {
             f()
         } with handler TelegramApi {
-            def fetchUpdates(token, offset, resume) = 
-                let updates = getUpdates(token, offset);
+            def fetchUpdates(offset, resume) = 
+                let updates = getUpdates(offset);
                 resume(updates)
         }
 
     pub enum TelegramUpdate {
         case TextMessage({updateId = Int64, message = String})
         case OtherUpdate(Int64)
+    }
+
+    instance Eq[TelegramUpdate] {
+        pub def eq(x: TelegramUpdate, y: TelegramUpdate): Bool = match (x, y) {
+            case (TelegramUpdate.TextMessage(recordX), TelegramUpdate.TextMessage(recordY)) => recordX#updateId == recordY#updateId and recordX#message == recordY#message
+            case (TelegramUpdate.OtherUpdate(idX), TelegramUpdate.OtherUpdate(idY)) => idX == idY
+            case _ => false
+        }
+    }
+    
+    instance ToString[TelegramUpdate] {
+        pub def toString(x: TelegramUpdate): String = match x {
+            case TelegramUpdate.TextMessage(record) => "TextMessage(updateId=${record#updateId}, message=${record#message})"
+            case TelegramUpdate.OtherUpdate(id) => "OtherUpdate(updateId=${id})"
+        }
     }
     
     pub enum Error with Eq, ToString {
@@ -40,11 +59,12 @@ mod TelegramApi {
                 ) yield TelegramUpdate.TextMessage({updateId = updateId, message = message})
     }
 
-    def getUpdates(token: String, offset: Option[Int64]): Result[Error, List[TelegramUpdate]] \ Https = 
+    def getUpdates(offset: Option[Int64]): Result[Error, List[TelegramUpdate]] \ { Https, TelegramBotToken } = 
         let offsetSuffix = match offset {
             case Some(o) => "&offset=${o}"
             case None => ""
         };
+        let token = TelegramBotToken.getToken();
         let url = "https://api.telegram.org/${token}/getUpdates?timeout=30${offsetSuffix}";
         match Https.send(HttpRequest.get(url)) {
             case Ok(response) => match HttpResponse.body(response) |> parse {
