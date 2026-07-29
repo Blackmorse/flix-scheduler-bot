@@ -115,4 +115,55 @@ mod JsonExt.Test {
             case Err(_) => () // Expected error
             case Ok(_) => fail("Expected an error, but got Ok")
         }
+
+    @Test
+    def testGetInt64FromPathHappyPath(): Unit \ Assert =
+        match BigDecimal.fromString("42") {
+            case Some(n) =>
+                let json = JObject(Map#{"key" => JObject(Map#{"nested" => JNumber(n)})});
+                let path = JsonPath(JsonStep.Key("key") :: JsonStep.Key("nested") :: Nil);
+                assertEq(expected = Ok(42i64), JsonExt.getAsInt64FromPath(path, json))
+            case None => fail("Failed to create BigDecimal from string")
+        }
+
+    @Test
+    def testGetInt64FromPathDifferentType(): Unit \ Assert =
+        let json = JObject(Map#{"key" => JObject(Map#{"nested" => JString("not a number")})});
+        let path = JsonPath(JsonStep.Key("key") :: JsonStep.Key("nested") :: Nil);
+        match JsonExt.getAsInt64FromPath(path, json) {
+            case Err(JsonError.Decode(p, DecodeErrorKind.TypeMismatch("Expected a number"))) if p == path => ()
+            case _ => fail("Expected a decode error for different type")
+        }
+
+    @Test
+    def testGetInt64FromPathKeyNotFound(): Unit \ Assert =
+        let json = JObject(Map#{"key" => JObject(Map#{})});
+        let path = JsonPath(JsonStep.Key("key") :: JsonStep.Key("nested") :: Nil);
+        match JsonExt.getAsInt64FromPath(path, json) {
+            case Err(_) => () // Expected error
+            case Ok(_) => fail("Expected an error, but got Ok")
+        }
+
+    @Test
+    def testGetInt64FromPathFloatNumber(): Unit \ Assert =
+        match BigDecimal.fromString("42.4") {
+            case Some(n) =>
+                let json = JObject(Map#{"key" => JObject(Map#{"nested" => JNumber(n)})});
+                let path = JsonPath(JsonStep.Key("key") :: JsonStep.Key("nested") :: Nil);
+                assertEq(expected = Ok(42i64), JsonExt.getAsInt64FromPath(path, json))
+            case None => fail("Failed to create BigDecimal from string")
+        }
+
+    @Test
+    def testGetInt64FromPathTooBigNumber(): Unit \ Assert =
+        match BigDecimal.fromString("9223372036854775808") { // 2^63, too big for Int64
+            case Some(n) =>
+                let json = JObject(Map#{"key" => JObject(Map#{"nested" => JNumber(n)})});
+                let path = JsonPath(JsonStep.Key("key") :: JsonStep.Key("nested") :: Nil);
+                match JsonExt.getAsInt64FromPath(path, json) {
+                    case Err(JsonError.Decode(p, DecodeErrorKind.TypeMismatch("Expected an integer number"))) if p == path => ()
+                    case _ => fail("Expected a decode error for too big number")
+                }
+            case None => fail("Failed to create BigDecimal from string")
+        }
 }

@@ -27,8 +27,8 @@ mod TelegramApi.Tests {
             url = ""
         })
 
-    def textUpdateJsonString(updateId: Int64, text: String): String = 
-        "{\"update_id\": ${updateId}, \"message\": {\"text\": \"${text}\"}}"
+    def textUpdateJsonString(updateId: Int64, text: String, chatId: Int64): String = 
+        "{\"update_id\": ${updateId}, \"message\": {\"text\": \"${text}\", \"chat\": {\"id\": ${chatId}}}}"
 
     @Test
     def testGetUpdatesReturnsNetworkErrorIfCaseOfRequestFailure(): Unit \ Assert = 
@@ -142,7 +142,7 @@ mod TelegramApi.Tests {
                 case Ok(list) => assertEq(expected = 2, List.length(list))
                 case _ => fail("Expected Ok with two updates")
             }
-        } with httpHandlerWithBody("{\"ok\": true, \"result\": [${textUpdateJsonString(123i64, "Hello, world!")}, ${textUpdateJsonString(456i64, "Hello, world!")}] }")
+        } with httpHandlerWithBody("{\"ok\": true, \"result\": [${textUpdateJsonString(123i64, "Hello, world!", 1i64)}, ${textUpdateJsonString(456i64, "Hello, world!", 2i64)}] }")
           with botTokenHandler("test_token")
 
     @Test
@@ -152,13 +152,13 @@ mod TelegramApi.Tests {
                 case Ok(list) => assertEq(expected = 3, List.length(list))
                 case _ => fail("Expected Ok with three updates")
             }
-        } with httpHandlerWithBody("{\"ok\": true, \"result\": [${textUpdateJsonString(123i64, "Hello, world!")}, ${textUpdateJsonString(456i64, "Hello, world!")}, ${textUpdateJsonString(789i64, "Hello, world!")}] }")
+        } with httpHandlerWithBody("{\"ok\": true, \"result\": [${textUpdateJsonString(123i64, "Hello, world!", 1i64)}, ${textUpdateJsonString(456i64, "Hello, world!", 2i64)}, ${textUpdateJsonString(789i64, "Hello, world!", 3i64)}] }")
           with botTokenHandler("test_token")
 
     @Test
     def testGetUpdatesParsesTextMessage(): Unit \ Assert = 
         run {
-            assertEq(expected = Ok(List#{TelegramApi.TelegramUpdate.TextMessage({updateId = 123i64, message = "Hello, world!"})}), TelegramApi.getUpdates(None))
-        } with httpHandlerWithBody("{\"ok\": true, \"result\": [${textUpdateJsonString(123i64, "Hello, world!")}] }")
+            assertEq(expected = Ok(List#{TelegramApi.TelegramUpdate.TextMessage({updateId = 123i64, message = "Hello, world!", chatId = 453i64})}), TelegramApi.getUpdates(None))
+        } with httpHandlerWithBody("{\"ok\": true, \"result\": [${textUpdateJsonString(123i64, "Hello, world!", 453i64)}] }")
           with botTokenHandler("test_token")
 }

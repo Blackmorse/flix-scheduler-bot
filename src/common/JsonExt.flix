@@ -33,6 +33,17 @@ mod JsonExt {
             case Err(e) => Err(e)
         }
 
+    pub def getAsInt64FromPath(p: JsonPath, json: Json): Result[JsonError, Int64] = 
+        match FromJson.getAtPath(p, json) {
+            case Ok(JNumber(n)) => 
+                BigDecimal.tryToInt64(n) 
+                |> Option.toOk(JsonError.Decode(p, DecodeErrorKind.TypeMismatch("Expected an integer number")))
+            case Ok(_) => 
+                JsonError.Decode(p, DecodeErrorKind.TypeMismatch("Expected a number")) 
+                |> Err
+            case Err(e) => Err(e)
+        }
+
     pub def getAsArray(key: String, json: Json): Result[JsonError, Vector[Json]] = 
         match FromJson.getAtKey(key, json) {
             case Ok(Util.Json.JArray(arr)) => Ok(arr)
