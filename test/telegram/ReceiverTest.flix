@@ -1,14 +1,15 @@
-mod TelegramApi.Tests {
+mod TelegramApi.Receiver.Tests {
     use Assert.{assertErr, fail, assertEq, assertTrue}
+    use IoError.ErrorKind.ConnectionFailed
     use Net.{Https, HttpRequest}
     use Util.Json.JsonError
-    use IoError.IoError
-    use IoError.ErrorKind.ConnectionFailed
+    use TelegramApi.Models.{TelegramBotToken, TelegramUpdate}
+    use TelegramApi.Receiver.{Error, getUpdates}
 
-    def botTokenHandler(token: String, f: Unit -> a \ ef): a \ (ef - TelegramApi.TelegramBotToken) =
+    def botTokenHandler(token: String, f: Unit -> a \ ef): a \ (ef - TelegramBotToken) =
         run {
             f()
-        } with handler TelegramApi.TelegramBotToken {
+        } with handler TelegramBotToken {
             def getToken(resume) = resume(token)
         }
 
@@ -19,6 +20,9 @@ mod TelegramApi.Tests {
             def request(_, resume) = resume(Ok(httpResponse(body)))
         }
 
+    def textUpdateJsonString(updateId: Int64, text: String, chatId: Int64): String = 
+        "{\"update_id\": ${updateId}, \"message\": {\"text\": \"${text}\", \"chat\": {\"id\": ${chatId}}}}"
+
     def httpResponse(body: String): Net.HttpResponse = 
         Net.HttpResponse({
             body = Net.Body.Text(body),
@@ -27,15 +31,12 @@ mod TelegramApi.Tests {
             url = ""
         })
 
-    def textUpdateJsonString(updateId: Int64, text: String, chatId: Int64): String = 
-        "{\"update_id\": ${updateId}, \"message\": {\"text\": \"${text}\", \"chat\": {\"id\": ${chatId}}}}"
-
     @Test
     def testGetUpdatesReturnsNetworkErrorIfCaseOfRequestFailure(): Unit \ Assert = 
         run {
-            let result = TelegramApi.getUpdates(None);
+            let result = getUpdates(None);
             match result {
-                case Err(TelegramApi.Error.NetworkError(IoError(ConnectionFailed, _))) => ()
+                case Err(Error.NetworkError(IoError(ConnectionFailed, _))) => ()
                 case _ => fail("Expected an error, but got Ok")
             }
         } with handler Https {
@@ -46,11 +47,11 @@ mod TelegramApi.Tests {
     @Test
     def testTokenPassedToGetUpdates(): Unit \ Assert =
         run {
-            let _ = TelegramApi.getUpdates(None);
+            let _ = getUpdates(None);
             ()
         } with handler Https {
             def request(url, resume) = {
-                assertTrue(String.contains(substr = "test_token", HttpRequest.url(url)));
+                String.contains(substr = "test_token", HttpRequest.url(url)) |> assertTrue;
                 resume(Err(IoError(ConnectionFailed, "Simulated network failure")))
             }
         } with botTokenHandler("test_token")
@@ -58,11 +59,11 @@ mod TelegramApi.Tests {
     @Test
     def testOffsetPassedToGetUpdate(): Unit \ Assert = 
         run {
-            let _ = TelegramApi.getUpdates(Some(123i64));
+            let _ = getUpdates(Some(123i64));
             ()
         } with handler Https {
             def request(url, resume) = {
-                assertTrue(String.contains(substr = "offset=123", HttpRequest.url(url)));
+                String.contains(substr = "offset=123", HttpRequest.url(url)) |> assertTrue;
                 resume(Err(IoError(ConnectionFailed, "Simulated network failure")))
             }
         } with botTokenHandler("test_token")
@@ -70,11 +71,11 @@ mod TelegramApi.Tests {
     @Test
     def testOffsetNotPassedToGetUpdateWhenNone(): Unit \ Assert = 
         run {
-            let _ = TelegramApi.getUpdates(None);
+            let _ = getUpdates(None);
             ()
         } with handler Https {
             def request(url, resume) = {
-                assertTrue(not String.contains(substr = "offset=", HttpRequest.url(url)));
+                not String.contains(substr = "offset=", HttpRequest.url(url)) |> assertTrue;
                 resume(Err(IoError(ConnectionFailed, "Simulated network failure")))
             }
         } with botTokenHandler("test_token")
@@ -82,8 +83,8 @@ mod TelegramApi.Tests {
     @Test
     def testGetUpdatesReceivedNonParseableBody(): Unit \ Assert = 
        run {
-           match TelegramApi.getUpdates(None) {
-               case Err(TelegramApi.Error.UnexpectedResponse(_)) => ()
+           match getUpdates(None) {
+               case Err(Error.UnexpectedResponse(_)) => ()
                case _ => fail("Got OK or wrong error type, expected UnexpectedResponse")
            }
        } with httpHandlerWithBody("This is not JSON")
@@ -92,44 +93,44 @@ mod TelegramApi.Tests {
     @Test
     def testGetUpdatesNoOkFieldInResponse(): Unit \ Assert = 
         run {
-            assertEq(expected = Err(TelegramApi.Error.ErrorResponse("Unknown status: no 'ok' field")), TelegramApi.getUpdates(None))
+            getUpdates(None) |> assertEq(expected = Err(Error.ErrorResponse("Unknown status: no 'ok' field")))
         } with httpHandlerWithBody("{\"description\": \"Test error description\"}")
           with botTokenHandler("test_token")
 
     @Test
     def testGetUpdatesOkFieldNotBoolean(): Unit \ Assert = 
         run {
-            assertEq(expected = Err(TelegramApi.Error.ErrorResponse("Unknown status: 'ok' field is not a boolean")), TelegramApi.getUpdates(None))
+            getUpdates(None) |> assertEq(expected = Err(Error.ErrorResponse("Unknown status: 'ok' field is not a boolean")))
         } with httpHandlerWithBody("{\"ok\": \"not_a_boolean\", \"description\": \"Test error description\"}")
           with botTokenHandler("test_token")
 
     @Test
     def testGetUpdatesNotOkStatusAndValidDescription(): Unit \ Assert = 
         run {
-            assertEq(expected = Err(TelegramApi.Error.ErrorResponse("Test error description")), TelegramApi.getUpdates(None))
+            getUpdates(None) |> assertEq(expected = Err(Error.ErrorResponse("Test error description")))
         } with httpHandlerWithBody("{\"ok\": false, \"description\": \"Test error description\"}")
           with botTokenHandler("test_token")
 
     @Test
     def testGetUpdatesNotOkStatusAndNoDescriptionField(): Unit \ Assert = 
         run {
-            assertEq(expected = Err(TelegramApi.Error.ErrorResponse("Failed response, but no description")), TelegramApi.getUpdates(None))
+            getUpdates(None) |> assertEq(expected = Err(Error.ErrorResponse("Failed response, but no description")))
         } with httpHandlerWithBody("{\"ok\": false}")
           with botTokenHandler("test_token")
 
     @Test
     def testGetUpdatesNotOkStatusAndInvalidDescriptionField(): Unit \ Assert =
         run {
-            assertEq(expected = Err(TelegramApi.Error.ErrorResponse("Failed response, unable to decode description")), TelegramApi.getUpdates(None))
+            getUpdates(None) |> assertEq(expected = Err(Error.ErrorResponse("Failed response, unable to decode description")))
         } with httpHandlerWithBody("{\"ok\": false, \"description\": 123}")
           with botTokenHandler("test_token")
 
     @Test
     def testGetUpdatesHasResultsAsNotArray(): Unit \ Assert = 
         run {
-            match TelegramApi.getUpdates(None) {
+            match getUpdates(None) {
                 // TODO Path, message?
-                case Err(TelegramApi.Error.UnexpectedResponse(JsonError.Decode(_, _))) => ()
+                case Err(Error.UnexpectedResponse(JsonError.Decode(_, _))) => ()
                 case _ => fail("Got OK or wrong error type or wrong description, expected ErrorResponse")
             }
         } with httpHandlerWithBody("{\"ok\": true, \"result\": {\"update_id\": 123}}")
@@ -138,7 +139,7 @@ mod TelegramApi.Tests {
     @Test
     def testGetTwoUpdatesFromValidResponse(): Unit \ Assert = 
         run {
-            match TelegramApi.getUpdates(None) {
+            match getUpdates(None) {
                 case Ok(list) => assertEq(expected = 2, List.length(list))
                 case _ => fail("Expected Ok with two updates")
             }
@@ -148,7 +149,7 @@ mod TelegramApi.Tests {
     @Test
     def testGetThreeUpdatesFromValidResponse(): Unit \ Assert = 
         run {
-            match TelegramApi.getUpdates(None) {
+            match getUpdates(None) {
                 case Ok(list) => assertEq(expected = 3, List.length(list))
                 case _ => fail("Expected Ok with three updates")
             }
@@ -158,7 +159,7 @@ mod TelegramApi.Tests {
     @Test
     def testGetUpdatesParsesTextMessage(): Unit \ Assert = 
         run {
-            assertEq(expected = Ok(List#{TelegramApi.TelegramUpdate.TextMessage({updateId = 123i64, message = "Hello, world!", chatId = 453i64})}), TelegramApi.getUpdates(None))
+            getUpdates(None) |> assertEq(expected = Ok(List#{TelegramUpdate.TextMessage({updateId = 123i64, message = "Hello, world!", chatId = 453i64})}))
         } with httpHandlerWithBody("{\"ok\": true, \"result\": [${textUpdateJsonString(123i64, "Hello, world!", 453i64)}] }")
           with botTokenHandler("test_token")
 }

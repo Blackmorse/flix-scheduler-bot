@@ -7,7 +7,8 @@ mod JsonExt {
         match FromJson.getAtKey(key, json) {
             case Ok(JString(s)) => Ok(s)
             case Ok(_) => 
-                JsonError.Decode(JsonPath(JsonStep.Key(key) :: Nil), DecodeErrorKind.TypeMismatch("Expected a string")) 
+                DecodeErrorKind.TypeMismatch("Expected a string")
+                |> JsonError.Decode(JsonPath(JsonStep.Key(key) :: Nil)) 
                 |> Err
             case Err(e) => Err(e)
         }
@@ -16,7 +17,8 @@ mod JsonExt {
         match FromJson.getAtPath(p, json) {
             case Ok(JString(s)) => Ok(s)
             case Ok(_) => 
-                JsonError.Decode(p, DecodeErrorKind.TypeMismatch("Expected a string")) 
+                DecodeErrorKind.TypeMismatch("Expected a string")
+                |> JsonError.Decode(p) 
                 |> Err
             case Err(e) => Err(e)
         }
@@ -28,7 +30,8 @@ mod JsonExt {
                 BigDecimal.tryToInt64(n) 
                 |> Option.toOk(JsonError.Decode(JsonPath(JsonStep.Key(key) :: Nil), DecodeErrorKind.TypeMismatch("Expected an integer number")))
             case Ok(_) => 
-                JsonError.Decode(JsonPath(JsonStep.Key(key) :: Nil), DecodeErrorKind.TypeMismatch("Expected a number")) 
+                DecodeErrorKind.TypeMismatch("Expected a number")
+                |> JsonError.Decode(JsonPath(JsonStep.Key(key) :: Nil)) 
                 |> Err
             case Err(e) => Err(e)
         }
@@ -39,7 +42,8 @@ mod JsonExt {
                 BigDecimal.tryToInt64(n) 
                 |> Option.toOk(JsonError.Decode(p, DecodeErrorKind.TypeMismatch("Expected an integer number")))
             case Ok(_) => 
-                JsonError.Decode(p, DecodeErrorKind.TypeMismatch("Expected a number")) 
+                DecodeErrorKind.TypeMismatch("Expected a number")
+                |> JsonError.Decode(p) 
                 |> Err
             case Err(e) => Err(e)
         }
@@ -48,7 +52,8 @@ mod JsonExt {
         match FromJson.getAtKey(key, json) {
             case Ok(Util.Json.JArray(arr)) => Ok(arr)
             case Ok(_) => 
-                JsonError.Decode(JsonPath(JsonStep.Key(key) :: Nil), DecodeErrorKind.TypeMismatch("Expected '${key}' to be an array")) 
+                DecodeErrorKind.TypeMismatch("Expected '${key}' to be an array")
+                |> JsonError.Decode(JsonPath(JsonStep.Key(key) :: Nil)) 
                 |> Err
             case Err(e) => Err(e)
         }
