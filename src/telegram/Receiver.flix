@@ -25,8 +25,7 @@ mod TelegramApi.Receiver {
             }
         } with handler TelegramHttpReceiver {
             def fetchUpdates(offset, resume) = {
-                let updates = getUpdates(offset);
-                resume(updates)
+                getUpdates(offset) |> resume
             }
         }
     
@@ -68,10 +67,18 @@ mod TelegramApi.Receiver {
             case Ok(updates) => updates
             case Err(_) => Nil
         };
-        let nextUpdate = updates |> List.map( update -> {
-            let _ = UserMessageHandler.handleMessage(update);
-            WithUpdateId.getUpdateId(update)
-        }) |> List.maximum |> Option.map(id -> id + 1i64);
+        // region rc {
+            List.forEach(update -> {
+                let _ = UserMessageHandler.handleMessage(update);
+                ()
+            }, updates);
+            // let nextUpdate = updates |> List.map( update -> {
+            //     UserMessageHandler.handleMessage(update);
+            //     WithUpdateId.getUpdateId(update)
+            // }) |> List.maximum |> Option.map(id -> id + 1i64);
+            // ()
+        // };
+        let nextUpdate = updates |> List.map(WithUpdateId.getUpdateId) |> List.maximum |> Option.map(id -> id + 1i64);
         runHttpLoop(nextUpdate)
 
     pub enum Error with Eq, ToString {

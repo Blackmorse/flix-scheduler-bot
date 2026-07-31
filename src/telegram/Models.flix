@@ -1,6 +1,6 @@
 mod TelegramApi.Models {
     use Util.Json
-    use Util.Json.{FromJson, JsonError, JsonPath}
+    use Util.Json.{FromJson, JsonError, JsonPath, ToJson, JNumber, JString, JObject}
     use Util.Json.JsonPath.JsonStep
 
     pub enum TelegramUpdate {
@@ -39,6 +39,13 @@ mod TelegramApi.Models {
         def getToken(): String
     }
 
+    pub def runWithToken(token: String, f: Unit -> a \ ef): a \ (ef - TelegramBotToken) = 
+        run {
+            f()
+        } with handler TelegramBotToken {
+            def getToken(resume) = resume(token)
+        }
+
     // TODO: cover with tests(?)
     instance FromJson[TelegramUpdate] {
         pub def fromJson(j: Json): Result[JsonError, TelegramUpdate] = 
@@ -53,4 +60,12 @@ mod TelegramApi.Models {
         case TextMessage({chatId = Int64, text = String})
     }
 
+    instance ToJson[OutgoingMessage] {
+        pub def toJson(x: OutgoingMessage): Json = match x {
+            case OutgoingMessage.TextMessage({chatId, text}) => JObject(Map#{
+                "chat_id" => JNumber(Int64.toBigDecimal(chatId)),
+                "text"    => JString(text)
+            })
+        }
+    }
 }

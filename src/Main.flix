@@ -1,3 +1,4 @@
+use TelegramApi.Models.runWithToken
 use TelegramApi.Models.TelegramBotToken;
 use TelegramApi.Handler.runWithHttpsMessageSender;
 use TelegramApi.Receiver.runWithLongPollingLoop;
@@ -10,23 +11,32 @@ use Net.{Https, HttpRequest}
 def main(): Unit \ { Env, IO, Https }  = {
     match Env.getVar("TELEGRAM_BOT_TOKEN") {
         case Some(token) =>
-            run {
-                let _ = TelegramUpdatesListener.listenToUpdates();
-                ()
-            } with runWithLongPollingLoop
-              with handler UserMessageHandler {
-                  def handleMessage(message, resume) = match message {
-                      case TelegramUpdate.TextMessage({chatId, message = text | _}) => 
-                          let _ = OutgoingMessage.TextMessage({chatId = chatId, text = "You said: ${text}"}) 
-                            |> sendMessage;
-                          // ignoring errors right now
-                          resume(())
-                      case _ => resume(())
-                  }
+          region rc {
+              run {
+                  let _ = TelegramUpdatesListener.listenToUpdates();
+                  ()
+              } with runWithLongPollingLoop
+                with handler UserMessageHandler {
+                    def handleMessage(message, resume) = {
+                        // handling messages asynchronously
+                        spawn handle(token, message) @ rc;
+                        resume(())
+                    }
+                }
+                with runWithToken(token)
               }
-              with handler TelegramBotToken {
-                def getToken(resume) = resume(token)
-            }
         case None => println("Error: TELEGRAM_BOT_TOKEN environment variable is not set.")
       }
     }
+
+    def handle(token: String, message: TelegramUpdate): Unit \ { IO } = run {
+        match message {
+            case TelegramUpdate.TextMessage({chatId, message = text | _}) => 
+                let _ = OutgoingMessage.TextMessage({chatId = chatId, text = "You said: ${text}"}) 
+                    |> sendMessage;
+                    // ignoring errors right now
+                    ()
+              case _ => ()
+          }
+    } with runWithToken(token)
+      with Https.runWithIO
