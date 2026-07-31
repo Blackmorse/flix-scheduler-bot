@@ -1,7 +1,6 @@
-use TelegramApi.Models.runWithToken
-use TelegramApi.Models.TelegramBotToken;
 use TelegramApi.Handler.runWithHttpsMessageSender;
 use TelegramApi.Receiver.runWithLongPollingLoop;
+use TelegramApi.Models.{runWithToken, TelegramBotToken}
 use TelegramApi.Models.{TelegramUpdate, OutgoingMessage}
 use TelegramApi.Handler.{UserMessageHandler, sendMessage}
 use TelegramApi.Receiver.TelegramUpdatesListener
@@ -15,14 +14,7 @@ def main(): Unit \ { Env, IO, Https }  = {
               run {
                   let _ = TelegramUpdatesListener.listenToUpdates();
                   ()
-              } with runWithLongPollingLoop
-                with handler UserMessageHandler {
-                    def handleMessage(message, resume) = {
-                        // handling messages asynchronously
-                        spawn handle(token, message) @ rc;
-                        resume(())
-                    }
-                }
+              } with runWithLongPollingLoop(rc, handle(token))
                 with runWithToken(token)
               }
         case None => println("Error: TELEGRAM_BOT_TOKEN environment variable is not set.")

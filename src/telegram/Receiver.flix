@@ -13,12 +13,12 @@ mod TelegramApi.Receiver {
         def fetchUpdates(offset: Option[Int64]): Result[Error, List[TelegramUpdate]]
     }
 
-    pub def runWithLongPollingLoop(f: Unit -> a \ ef): a \ (ef - TelegramUpdatesListener) + UserMessageHandler + TelegramBotToken + Https =
+    pub def runWithLongPollingLoop(rc: Region[r], handle: TelegramUpdate -> Unit \ { IO }, f: Unit -> a \ ef): a \ (ef - TelegramUpdatesListener) + TelegramBotToken + IO + Https =
         run {
             f()
         } with handler TelegramUpdatesListener {
             def listenToUpdates(resume) = {
-                match runHttpLoop(None) {
+                match runHttpLoopAsyncHandler(rc, handle, None) {
                     case Ok(_) => resume(Ok(()))
                     case Err(err) => resume(Err(err))
                 }
@@ -62,24 +62,18 @@ mod TelegramApi.Receiver {
         }
 
     @Tailrec
-    def runHttpLoop(offset: Option[Int64]): Result[Error, Int64] \ { TelegramHttpReceiver, UserMessageHandler } = 
+    def runHttpLoopAsyncHandler(rc: Region[r], handle: TelegramUpdate -> Unit \ IO, offset: Option[Int64]): Result[Error, Int64] \ { TelegramHttpReceiver, IO} = 
         let updates = match TelegramHttpReceiver.fetchUpdates(offset) {
             case Ok(updates) => updates
             case Err(_) => Nil
         };
-        // region rc {
-            List.forEach(update -> {
-                let _ = UserMessageHandler.handleMessage(update);
-                ()
-            }, updates);
-            // let nextUpdate = updates |> List.map( update -> {
-            //     UserMessageHandler.handleMessage(update);
-            //     WithUpdateId.getUpdateId(update)
-            // }) |> List.maximum |> Option.map(id -> id + 1i64);
-            // ()
-        // };
+        List.forEach(update -> {
+            spawn handle(update) @ rc;
+            ()
+        }, updates);
         let nextUpdate = updates |> List.map(WithUpdateId.getUpdateId) |> List.maximum |> Option.map(id -> id + 1i64);
-        runHttpLoop(nextUpdate)
+        runHttpLoopAsyncHandler(rc, handle, nextUpdate)
+
 
     pub enum Error with Eq, ToString {
         case NetworkError(IoError),
