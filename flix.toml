@@ -4,3 +4,6 @@ description = "test"
 version     = "0.1.0"
 flix        = "0.75.1"
 authors     = ["John Doe <john@example.com>"]
+
+[dependencies]
+"github:Blackmorse/flix-telegram-bot-api" = "0.1.1"
