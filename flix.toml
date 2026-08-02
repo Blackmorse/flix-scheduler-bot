@@ -6,4 +6,4 @@ flix        = "0.75.1"
 authors     = ["John Doe <john@example.com>"]
 
 [dependencies]
-"github:Blackmorse/flix-telegram-bot-api" = "0.1.1"
+"github:Blackmorse/flix-telegram-bot-api" = "0.2.0"
