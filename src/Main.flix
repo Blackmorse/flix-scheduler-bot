@@ -17,7 +17,7 @@ def main(): Unit \ { Env, IO, Chan, NonDet }  = {
                     handleUpdates(receiver)
             } with runWithToken(token)
               with Https.runWithIO
-              with runWithInMemoryStorage(rc)
+              with Storage.runWithInMemoryStorage("First category" :: "Second Category" :: Nil, rc)
             case None => println("Error: TELEGRAM_BOT_TOKEN environment variable is not set.")
             }
         }
