@@ -1,9 +1,11 @@
+use State.StateRead
+use Storage.StorageRead
 use TelegramApi.Models.{runWithToken, TelegramBotToken, TelegramUpdate, OutgoingMessage}
 use TelegramApi.Handler.sendMessage
 use TelegramApi.Receiver.Listeners.{TelegramUpdatesListener, runWithChannelLongPolling}
 use Sys.Env
 use Net.Https
-use Commands.FromString
+use Commands.{FromString, Command}
 use Storage.Storage
 
 
@@ -36,11 +38,11 @@ def handleUpdates(rx: Receiver[TelegramUpdate]): Unit \ { Chan, Https, TelegramB
         case TelegramUpdate.TextMessage({chatId, message = text | _}) =>
             let command = FromString.fromString(text); 
             match command {
-                case Some(Commands.Command.AddCategory(category)) =>
+                case Ok(Commands.Command.AddCategory(category)) =>
                     let _ = Storage.addCategory(category);
                     let _ = OutgoingMessage.TextMessage({chatId = chatId, text = "Category added: ${category}"})
                         |> sendMessage; ()
-                case Some(Commands.Command.ListCategories) =>
+                case Ok(Commands.Command.ListCategories) =>
                     let categories = Storage.listCategories();
                     let formatted = List.map(c -> "🔹 ${c}", categories) |> List.join("\n");
                     let _ = OutgoingMessage.TextMessage({chatId = chatId, text = "📂 Categories:\n${formatted}"})

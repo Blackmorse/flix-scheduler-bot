@@ -21,6 +21,7 @@ mod Storage.Tests {
         } with runWithInMemoryStorage(Nil, rc)
     }
 
+    // TODO error should be returned
     @Test
     def testDuplicatesCollapse(): Unit \ Assert = region rc {
         run {
@@ -85,6 +86,21 @@ mod Storage.Tests {
             let _ = Storage.addTaskToCategory("Cat1", "task1");
             Storage.addCategory("Cat2");
             Storage.listTasksInCategory("Cat1") |> assertEq(expected = Ok("task1" :: Nil))
+        } with runWithInMemoryStorage(Nil, rc)
+    }
+
+    @Test
+    def testCategoryExistsReturnsFalseForMissingCategory(): Unit \ Assert = region rc {
+        run {
+            assertEq(expected = false, Storage.categoryExists("Ghost"))
+        } with runWithInMemoryStorage(Nil, rc)
+    }
+
+    @Test
+    def testCategoryExistsReturnsTrueAfterAdd(): Unit \ Assert = region rc {
+        run {
+            Storage.addCategory("Work");
+            assertEq(expected = true, Storage.categoryExists("Work"))
         } with runWithInMemoryStorage(Nil, rc)
     }
 }
