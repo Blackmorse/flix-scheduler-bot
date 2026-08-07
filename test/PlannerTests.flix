@@ -1,7 +1,7 @@
 mod Planner.Tests {
     use State.StateMachine
     use Commands.Command
-    use Planner.formTransition
+    use Planner.createPlan
     use Assert.assertEq
     use Planner.Actions.{AddItemToCategory, AddCategory, TransitionState, Reply}
 
@@ -24,7 +24,7 @@ mod Planner.Tests {
 
     @Test
     def testAddCategoryIgnoresStateAndAddsCategoryAndReplies(): Unit \ Assert = run {
-            formTransition(1i64, Command.AddCategory("New Category")) |>
+            createPlan(1i64, Command.AddCategory("New Category")) |>
                 assertEq(expected = 
                     AddCategory("New Category") :: 
                     Reply(1i64, "Category added: New Category") :: Nil)
@@ -32,7 +32,7 @@ mod Planner.Tests {
 
     @Test
     def testAddCategoryItemWithEmptyCategoryShouldAddCategory(): Unit \ Assert = run {
-        formTransition(1i64, Command.AddItemToCategory("New Category")) |>
+        createPlan(1i64, Command.AddItemToCategory("New Category")) |>
             assertEq(expected = 
                 TransitionState(StateMachine.AddItemCategorySelected("New Category")) 
                 :: AddCategory("New Category") 
@@ -42,7 +42,7 @@ mod Planner.Tests {
 
     @Test
     def testAddCategoryItemWithExistingCategoryShouldReplyWithTypeInItemName(): Unit \ Assert = run {
-            formTransition(1i64, Command.AddItemToCategory("Existing Category")) |>
+            createPlan(1i64, Command.AddItemToCategory("Existing Category")) |>
                 assertEq(expected = 
                     TransitionState(StateMachine.AddItemCategorySelected("Existing Category")) 
                     :: Reply(1i64, "Type in item name") :: Nil)
@@ -51,7 +51,7 @@ mod Planner.Tests {
 
     @Test
     def testSimpleTextInAddItemStateShouldGenerateInsertAndReply(): Unit \ Assert = run {
-        formTransition(1i64, Command.SimpleText("New Item")) |>
+        createPlan(1i64, Command.SimpleText("New Item")) |>
             assertEq(expected = 
                 AddItemToCategory("Existing Category", "New Item") 
                 :: Reply(1i64, "New item to category Existing Category added: New Item") :: Nil)
@@ -59,9 +59,11 @@ mod Planner.Tests {
 
     @Test
     def testOtherCommandInAddItemStateShouldAbortCommand(): Unit \ Assert = run {
-        formTransition(1i64, Command.ListCategories) |>
+        createPlan(1i64, Command.ListCategories) |>
             assertEq(expected = 
                 TransitionState(StateMachine.Nothing) 
                 :: Reply(1i64, "Invalid command for the current state. Aborting.") :: Nil)
     } with runWithStateAndStorage("Existing Category" :: Nil, StateMachine.AddItemCategorySelected("Existing Category"))
+    
+    // TODO: add tests for list categories
 }

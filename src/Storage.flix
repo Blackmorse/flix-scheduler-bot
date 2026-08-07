@@ -1,6 +1,6 @@
 mod Storage {
     pub eff Storage {
-        def addCategory(category: String): Unit
+        def addCategory(category: String): Result[StorageError, Unit]
         def listCategories(): List[String]
         def addTaskToCategory(category: String, task: String): Result[StorageError, Unit]
         def listTasksInCategory(category: String): Result[StorageError, List[String]]
@@ -15,7 +15,7 @@ mod Storage {
 
 
     pub eff StorageWrite {
-        def addCategory(category: String): Unit
+        def addCategory(category: String): Result[StorageError, Unit]
         def addTaskToCategory(category: String, task: String): Result[StorageError, Unit]
     }
 
@@ -50,14 +50,13 @@ mod Storage {
             f()
         } with handler StorageWrite {
             def addCategory(category, resume) = 
-                let _ = Storage.addCategory(category);
-                resume(())
+                Storage.addCategory(category) |> resume
 
             def addTaskToCategory(category, task, resume) = 
                 Storage.addTaskToCategory(category, task) |> resume
         }
 
-    pub def runWithInMemoryStorage(initialCategories: List[String],rc: Region[r], f: Unit -> a \ ef): a \ (ef - Storage) + r = 
+    pub def runWithInMemoryStorage(initialCategories: List[String], rc: Region[r], f: Unit -> a \ ef): a \ (ef - Storage) + r = 
         let categoriesMap = MutMap.empty(rc);
         // pre-populate with some categories for testing
         let _ = List.forEach(category -> MutMap.put(category, Set#{}, categoriesMap), initialCategories);
@@ -66,7 +65,7 @@ mod Storage {
         } with handler Storage {
             def addCategory(category, resume) = 
                 let _ = MutMap.put(category, Set#{}, categoriesMap);
-                resume(())
+                resume(Ok())
             
 
             def listCategories(resume) = 

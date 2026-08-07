@@ -5,7 +5,7 @@ mod Storage.Tests {
     @Test
     def testCategoryIsAdded(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Test Category");
+            let _ = Storage.addCategory("Test Category");
             let categories = Storage.listCategories();
             assertEq(expected = "Test Category" :: Nil, categories)
         } with runWithInMemoryStorage(Nil, rc)
@@ -14,8 +14,8 @@ mod Storage.Tests {
     @Test
     def testTwoDifferentCategoriesAreAdded(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Category Two");
-            Storage.addCategory("Category One");
+            let _ = Storage.addCategory("Category Two");
+            let _ = Storage.addCategory("Category One");
             let categories = Storage.listCategories();
             assertEq(expected = "Category One" :: "Category Two" :: Nil, List.sort(categories))
         } with runWithInMemoryStorage(Nil, rc)
@@ -25,8 +25,8 @@ mod Storage.Tests {
     @Test
     def testDuplicatesCollapse(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Duplicate Category");
-            Storage.addCategory("Duplicate Category");
+            let _ = Storage.addCategory("Duplicate Category");
+            let _ = Storage.addCategory("Duplicate Category");
             let categories = Storage.listCategories();
             assertEq(expected = "Duplicate Category" :: Nil, categories)
         } with runWithInMemoryStorage(Nil, rc)
@@ -35,7 +35,7 @@ mod Storage.Tests {
     @Test
     def testNewlyAddedCategoryHasNoTasks(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Solo");
+            let _ = Storage.addCategory("Solo");
             assertEq(expected = Ok(Nil), Storage.listTasksInCategory("Solo"))
         } with runWithInMemoryStorage(Nil, rc)
     }
@@ -51,7 +51,7 @@ mod Storage.Tests {
     @Test
     def testAddTaskToExistingCategoryAndListTasks(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Work");
+            let _ = Storage.addCategory("Work");
             let added = Storage.addTaskToCategory("Work", "Write tests");
             assertEq(expected = Ok(()), added);
             let tasks = Storage.listTasksInCategory("Work");
@@ -62,7 +62,7 @@ mod Storage.Tests {
     @Test
     def testAddDuplicatedTaskToCategoryShouldRiseError(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Dup");
+            let _ = Storage.addCategory("Dup");
             let _ = Storage.addTaskToCategory("Dup", "task");
             let result = Storage.addTaskToCategory("Dup", "task");
             assertEq(expected = Err(StorageError.TaskAlreadyExists("Dup", "task")), result)
@@ -72,7 +72,7 @@ mod Storage.Tests {
     @Test
     def testAddTwoTasksToCategoryAndListThem(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Multi");
+            let _ = Storage.addCategory("Multi");
             let _ = Storage.addTaskToCategory("Multi", "taskB");
             let _ = Storage.addTaskToCategory("Multi", "taskA");
             Storage.listTasksInCategory("Multi") |> Result.map(List.sort) |> assertEq(expected = Ok("taskA" :: "taskB" :: Nil))
@@ -82,9 +82,9 @@ mod Storage.Tests {
     @Test
     def testAddingNewCategoryShouldntDeleteTasks(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Cat1");
+            let _ = Storage.addCategory("Cat1");
             let _ = Storage.addTaskToCategory("Cat1", "task1");
-            Storage.addCategory("Cat2");
+            let _ = Storage.addCategory("Cat2");
             Storage.listTasksInCategory("Cat1") |> assertEq(expected = Ok("task1" :: Nil))
         } with runWithInMemoryStorage(Nil, rc)
     }
@@ -99,7 +99,7 @@ mod Storage.Tests {
     @Test
     def testCategoryExistsReturnsTrueAfterAdd(): Unit \ Assert = region rc {
         run {
-            Storage.addCategory("Work");
+            let _ = Storage.addCategory("Work");
             assertEq(expected = true, Storage.categoryExists("Work"))
         } with runWithInMemoryStorage(Nil, rc)
     }

@@ -1,7 +1,7 @@
-use State.StateRead
-use Storage.StorageRead
-use TelegramApi.Models.{runWithToken, TelegramBotToken, TelegramUpdate, OutgoingMessage}
-use TelegramApi.Handler.sendMessage
+use Commands.CommandParseError
+use State.{StateWrite, StateRead}
+use Storage.{StorageWrite, StorageRead}
+use TelegramApi.Models.{runWithToken, TelegramBotToken, TelegramUpdate}
 use TelegramApi.Receiver.Listeners.{TelegramUpdatesListener, runWithChannelLongPolling}
 use Sys.Env
 use Net.Https
@@ -16,9 +16,15 @@ def main(): Unit \ { Env, IO, Chan, NonDet }  = {
                 run {
                     let (sender, receiver) = Channel.buffered(100);
                     spawn listen(sender, token) @ rc;
-                    handleUpdates(receiver)
+                    handleUpdatesPipeline(receiver)
             } with runWithToken(token)
               with Https.runWithIO
+              // TODO handle with Storage and State read/write effects
+              with State.runWithReadState
+              with State.runWithWriteState
+              with State.runWithInMemoryState(rc)
+              with Storage.runWithReadStorage
+              with Storage.runWithWriteStorage
               with Storage.runWithInMemoryStorage("First category" :: "Second Category" :: Nil, rc)
             case None => println("Error: TELEGRAM_BOT_TOKEN environment variable is not set.")
             }
@@ -33,25 +39,20 @@ def listen(sender: Sender[TelegramUpdate], token: String): Unit \ { IO + Chan } 
       with Https.runWithIO
 
 @Tailrec
-def handleUpdates(rx: Receiver[TelegramUpdate]): Unit \ { Chan, Https, TelegramBotToken, NonDet, Storage } =
-   match Channel.recv(rx) {
-        case TelegramUpdate.TextMessage({chatId, message = text | _}) =>
-            let command = FromString.fromString(text); 
-            match command {
-                case Ok(Commands.Command.AddCategory(category)) =>
-                    let _ = Storage.addCategory(category);
-                    let _ = OutgoingMessage.TextMessage({chatId = chatId, text = "Category added: ${category}"})
-                        |> sendMessage; ()
-                case Ok(Commands.Command.ListCategories) =>
-                    let categories = Storage.listCategories();
-                    let formatted = List.map(c -> "🔹 ${c}", categories) |> List.join("\n");
-                    let _ = OutgoingMessage.TextMessage({chatId = chatId, text = "📂 Categories:\n${formatted}"})
-                        |> sendMessage; ()
-                case _ => 
-                    let _ = OutgoingMessage.TextMessage({chatId = chatId, text = "Unknown command."})
-                        |> sendMessage; ()
-            };
-            handleUpdates(rx)
-        case _ => handleUpdates(rx)
-   }
-
+def handleUpdatesPipeline(rx: Receiver[TelegramUpdate]): Unit \ { IO, NonDet, Https, TelegramBotToken, Chan, StorageRead, StateRead, StorageWrite, StateWrite } = 
+    match Channel.recv(rx) {
+        case TelegramUpdate.TextMessage({chatId, message = text | _}) => 
+            let result = forM (
+                 command    <- (FromString.fromString(text): Result[CommandParseError, Command]) 
+                                   |> Result.mapErr(e -> Executor.ExecuteError.ParseError(e));
+                 plan       =  Planner.createPlan(chatId, command);
+                 executions <- List.traverse(action -> Executor.Executable.execute(action), plan)
+            ) yield executions;
+            match result {
+                case Ok(_) => handleUpdatesPipeline(rx)
+                case Err(e) =>
+                    println("Error executing plan: ${e}");
+                    handleUpdatesPipeline(rx)
+            }
+        case _ => handleUpdatesPipeline(rx)
+    }
