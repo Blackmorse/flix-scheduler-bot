@@ -43,9 +43,8 @@ def handleUpdatesPipeline(rx: Receiver[TelegramUpdate]): Unit \ { IO, NonDet, Ht
     match Channel.recv(rx) {
         case TelegramUpdate.TextMessage({chatId, message = text | _}) => 
             let result = forM (
-                 command    <- (FromString.fromString(text): Result[CommandParseError, Command]) 
-                                   |> Result.mapErr(e -> Executor.ExecuteError.ParseError(e));
-                 plan       =  Planner.createPlan(chatId, command);
+                 command    <- FromString.fromString(text) |> Result.mapErr(e -> Executor.ExecuteError.ParseError(e));
+                 plan       <- Planner.createPlan(chatId, command);
                  executions <- List.traverse(action -> Executor.Executable.execute(action), plan)
             ) yield executions;
             match result {

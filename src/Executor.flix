@@ -16,6 +16,7 @@ mod Executor {
         case ParseError(Commands.CommandParseError),
         case SendMessageError(IoError)
         case StorageWriteError(Storage.StorageError)
+        case StorageReadError(Storage.StorageError)
     }
 
     def handleReply(chatId: Int64, text: String): Result[ExecuteError, Unit] \ { Https, TelegramBotToken } = 

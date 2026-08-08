@@ -115,4 +115,39 @@ mod Commands.Tests {
     def otherMessagesRecognizedAsSimpleText(): Unit \ Assert =
         (FromString.fromString("Just a regular message"): Result[CommandParseError, Command])
           |> assertEq(expected = Ok(Command.SimpleText("Just a regular message")))
+
+    @Test
+    def testListItemsForCategoryHappyPath(): Unit \ Assert =
+        FromString.fromString("/listItemsForCategory testCategory")
+          |> assertEq(expected = Ok(Command.ListItemsForCategory("testCategory")))
+
+    @Test
+    def testListItemsForCategoryMultiWordName(): Unit \ Assert =
+        FromString.fromString("/listItemsForCategory some category name")
+          |> assertEq(expected = Ok(Command.ListItemsForCategory("some category name")))
+
+    @Test
+    def testListItemsForCategoryExtraSpacesBetween(): Unit \ Assert =
+        FromString.fromString("/listItemsForCategory   spaced   out")
+          |> assertEq(expected = Ok(Command.ListItemsForCategory("spaced   out")))
+
+    @Test
+    def testListItemsForCategoryTrailingSpace(): Unit \ Assert =
+        FromString.fromString("/listItemsForCategory name ")
+          |> assertEq(expected = Ok(Command.ListItemsForCategory("name")))
+
+    @Test
+    def testListItemsForCategoryLeadingSpaceAfterCommand(): Unit \ Assert =
+        FromString.fromString("/listItemsForCategory  trimmed")
+          |> assertEq(expected = Ok(Command.ListItemsForCategory("trimmed")))
+
+    @Test
+    def testListItemsForCategoryNoArgumentShouldFail(): Unit \ Assert =
+        (FromString.fromString("/listItemsForCategory"): Result[CommandParseError, Command])
+          |> assertEq(expected = Err(CommandParseError.InvalidCommand("Empty argument for command: /listItemsForCategory")))
+
+    @Test
+    def testListItemsForCategoryNoNameOnlySpaces(): Unit \ Assert =
+        (FromString.fromString("/listItemsForCategory   "): Result[CommandParseError, Command])
+          |> assertEq(expected = Err(CommandParseError.InvalidCommand("Empty argument for command: /listItemsForCategory")))
 }

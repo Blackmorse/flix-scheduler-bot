@@ -7,12 +7,14 @@ mod Commands {
         case AddCategory(String),
         case AddItemToCategory(String),
         case ListCategories,
+        case ListItemsForCategory(String),
         case SimpleText(String)
     }
 
     def addCategoryPrefix(): String = "/addCategory"
     def addItemToCategoryPrefix(): String = "/addItemToCategory"
     def listCategoriesCommandPrefix(): String = "/listCategories"
+    def listItemsForCategoryPrefix(): String = "/listItemsForCategory"
 
     def parseCommandWithArgument(s: String, prefix: String): Result[CommandParseError, String] = 
         if (String.startsWith(prefix = prefix, s)) {
@@ -36,6 +38,9 @@ mod Commands {
             } else if (String.startsWith(prefix = addItemToCategoryPrefix(), s)) {
                 parseCommandWithArgument(s, addItemToCategoryPrefix()) 
                   |> Result.map(arg -> Command.AddItemToCategory(arg))
+            } else if (String.startsWith(prefix = listItemsForCategoryPrefix(), s)) {
+                parseCommandWithArgument(s, listItemsForCategoryPrefix()) 
+                  |> Result.map(arg -> Command.ListItemsForCategory(arg))
             } else if (String.startsWith(prefix = listCategoriesCommandPrefix(), s)) {
                 if (String.trim(s) != listCategoriesCommandPrefix()) {
                     Err(CommandParseError.InvalidCommand("${listCategoriesCommandPrefix()} command should not have arguments"))
